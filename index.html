@@ -10,7 +10,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
     <style>
-        /* --- ALL YOUR EXISTING CSS IS HERE --- */
         :root {
             --bg-color: #f0f2f5;
             --panel-color: #ffffff;
@@ -200,13 +199,15 @@
             position: relative;
             display: flex;
             align-items: center;
-            padding: 10px 10px 10px 40px; /* Space for delete button */
+            /* CHANGED: Adjusted padding to make space for the button on the left */
+            padding: 10px 10px 10px 40px;
             margin-bottom: 10px;
             background-color: var(--bg-color);
             border-radius: var(--border-radius);
         }
         .cart-item-delete-btn {
             position: absolute;
+            /* CHANGED: Moved to the left and vertically centered */
             left: 10px;
             top: 50%;
             transform: translateY(-50%);
@@ -241,11 +242,12 @@
         }
         .cart-item-name { font-weight: 600; }
         .cart-item-price { font-size: 14px; color: #555; }
+        /* NEW: Style for individual item total */
         .cart-item-total {
             font-size: 15px;
             font-weight: 600;
             color: var(--primary-color);
-            margin-top: 5px;
+            margin-top: 5px; /* Space below price */
         }
         .cart-item-controls {
             display: flex;
@@ -569,16 +571,14 @@
         const app = {
             // --- STATE MANAGEMENT ---
             state: {
-                products: [], // Products will be loaded from Google Sheet
-                cart: [],     // Cart is session-specific, loaded from local storage
-                sales: [],    // Sales log data, will be loaded from Google Sheet
+                products: [],
+                cart: [], 
+                sales: [], 
                 settings: {
-                    // !!! IMPORTANT: PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE !!!
-                    // You get this URL after deploying your Google Apps Script (Code.gs).
-                    googleSheetUrl: '', // Example: 'https://script.google.com/macros/s/AKfycb.../exec'
+                    googleSheetUrl: 'https://script.google.com/macros/s/AKfycbxtgNbWXR6FuZg5vodiQxPFUIsETyBik0LCY1V2cL5ktivFnKwHjj0FkEcJpq-8vkBJdQ/exec',
                     shopName: 'AZIZIA STORE',
                     currency: '৳',
-                    geminiApiKey: '' // PASTE YOUR GEMINI API KEY HERE (optional, for AI features)
+                    geminiApiKey: '' // User-provided API Key
                 },
             },
 
@@ -598,92 +598,26 @@
             },
 
             // --- INITIALIZATION ---
-            async init() { 
-                await this.loadState(); // Ensure data is loaded before rendering
+            init() {
+                this.loadState();
                 this.renderAll();
                 this.addEventListeners();
                 console.log("AZIZIA STORE Assistant Initialized.");
             },
 
-            // --- UPDATED: Load state from Google Sheet and local storage ---
-            async loadState() {
-                // Load settings from localStorage first (API key, sheet URL, etc.)
-                const savedSettings = localStorage.getItem('smartShopSettings');
-                if (savedSettings) {
-                    this.state.settings = { ...this.state.settings, ...JSON.parse(savedSettings) };
+            loadState() {
+                const savedState = localStorage.getItem('smartShopState');
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    this.state.settings = { ...this.state.settings, ...parsedState.settings };
+                    this.state.products = parsedState.products || [];
+                    this.state.cart = parsedState.cart || [];
+                    this.state.sales = parsedState.sales || [];
                 }
-
-                // Attempt to fetch products AND sales from Google Sheet if URL is available
-                if (this.state.settings.googleSheetUrl) {
-                    try {
-                        this.showNotification("Loading data from server...", false);
-                        // Fetch products
-                        const productsResponse = await fetch(this.state.settings.googleSheetUrl + '?action=getProducts');
-                        if (!productsResponse.ok) {
-                            const errorText = await productsResponse.text();
-                            throw new Error(`HTTP error (products)! status: ${productsResponse.status} - ${errorText}`);
-                        }
-                        const productsData = await productsResponse.json();
-                        if (productsData.products) {
-                            this.state.products = productsData.products;
-                        } else if (productsData.error) {
-                            throw new Error(productsData.error);
-                        }
-
-                        // Fetch sales (new addition for sales persistence)
-                        const salesResponse = await fetch(this.state.settings.googleSheetUrl + '?action=getSales');
-                        if (!salesResponse.ok) {
-                            const errorText = await salesResponse.text();
-                            throw new Error(`HTTP error (sales)! status: ${salesResponse.status} - ${errorText}`);
-                        }
-                        const salesData = await salesResponse.json();
-                        if (salesData.sales) {
-                            this.state.sales = salesData.sales;
-                        } else if (salesData.error) {
-                            throw new Error(salesData.error);
-                        }
-
-                        this.showNotification("Data loaded successfully!");
-
-                    } catch (error) {
-                        console.error("Failed to load data from Google Sheet:", error);
-                        this.showNotification(`Error loading data from server: ${error.message}. Using local storage as fallback.`, true);
-                        // Fallback to local storage for products if sheet fails
-                        const savedProducts = localStorage.getItem('smartShopProducts');
-                        if (savedProducts) {
-                             this.state.products = JSON.parse(savedProducts);
-                        }
-                        // Fallback to local storage for sales if sheet fails
-                        const savedSalesLocal = localStorage.getItem('smartShopSales');
-                        if (savedSalesLocal) {
-                            this.state.sales = JSON.parse(savedSalesLocal);
-                        }
-                    }
-                } else {
-                    // If no Google Sheet URL, use local storage for all data
-                    const savedProducts = localStorage.getItem('smartShopProducts');
-                    if (savedProducts) {
-                         this.state.products = JSON.parse(savedProducts);
-                    }
-                    const savedSalesLocal = localStorage.getItem('smartShopSales');
-                    if (savedSalesLocal) {
-                        this.state.sales = JSON.parse(savedSalesLocal);
-                    }
-                    this.showNotification("Google Sheet URL not configured. Using local storage only.", true);
-                }
-
-                // Cart is always session-specific, loaded from local storage
-                const savedCart = localStorage.getItem('smartShopCart');
-                if (savedCart) { this.state.cart = JSON.parse(savedCart); }
             },
 
-            // MARKED CHANGE: saveState() now only saves local session data (settings, cart)
-            // Products and historical sales are managed by Google Sheet.
             saveState() {
-                localStorage.setItem('smartShopSettings', JSON.stringify(this.state.settings)); 
-                localStorage.setItem('smartShopCart', JSON.stringify(this.state.cart));       
-                // ONLY save sales to local storage as a temporary cache, not as the primary source
-                localStorage.setItem('smartShopSales', JSON.stringify(this.state.sales));
+                localStorage.setItem('smartShopState', JSON.stringify(this.state));
             },
 
             // --- RENDERING ---
@@ -741,6 +675,7 @@
                     itemEl.className = 'cart-item';
                     itemEl.dataset.id = item.productId;
                     const pricePerUnit = this.getCartItemPrice(item);
+                    // Calculate individual item total based on selected unit and quantity
                     const itemTotal = pricePerUnit * item.quantity;
 
                     itemEl.innerHTML = `
@@ -774,9 +709,12 @@
                 const total = this.state.cart.reduce((sum, item) => {
                     const product = this.getProductById(item.productId);
                     if (!product) return sum;
+                    // If unit is carton and price tier is carton, use carton price for total calculation
+                    // Otherwise, use the price per piece for the selected tier
                     const pricePerEffectiveUnit = (item.unit === 'carton' && item.priceTier === 'carton') 
-                                                ? (product.prices.carton || product.prices.retail)
+                                                ? product.prices.carton
                                                 : (product.prices[item.priceTier] || product.prices.retail);
+                    // Sum up based on the actual quantity of the purchased unit (piece or carton)
                     return sum + (pricePerEffectiveUnit * item.quantity);
                 }, 0);
                 
@@ -806,6 +744,7 @@
                     }
                     if (e.target.classList.contains('unit-selector')) { this.toggleCartItemUnit(productId); }
 
+                    // Quantity button bug fix - change by 1 per click
                     if (e.target.classList.contains('quantity-increase')) {
                         this.updateCartItemQuantity(productId, 1);
                     }
@@ -819,13 +758,13 @@
             addToCart(productId) {
                 const product = this.getProductById(productId);
                 if (!product || product.stock <= 0) {
-                    this.showNotification('Item is out of stock.', true);
+                    this.showNotification('Item is out of stock.');
                     return;
                 }
                 const existingItem = this.state.cart.find(item => item.productId === productId && item.unit === 'piece');
                 const totalInCart = this.getQuantityInPieces(productId);
                 if (totalInCart >= product.stock) {
-                    this.showNotification('Not enough stock!', true);
+                    this.showNotification('Not enough stock!');
                     return;
                 }
                 if (existingItem) {
@@ -833,22 +772,19 @@
                 } else {
                     this.state.cart.push({ productId, quantity: 1, priceTier: 'retail', unit: 'piece' });
                 }
-                this.saveState(); // Only save local cart state
-                this.renderAll(); // Re-render UI
+                this.saveAndRender();
             },
             
             removeFromCart(productId) {
                 this.state.cart = this.state.cart.filter(item => item.productId !== productId);
-                this.saveState(); // Only save local cart state
-                this.renderAll(); // Re-render UI
+                this.saveAndRender();
             },
 
             updateCartItem(productId, updates) {
                 const item = this.state.cart.find(i => i.productId === productId);
                 if (item) {
                     Object.assign(item, updates);
-                    this.saveState(); // Only save local cart state
-                    this.renderAll(); // Re-render UI
+                    this.saveAndRender();
                 }
             },
 
@@ -860,24 +796,26 @@
                 const proposedNewQuantity = item.quantity + change;
 
                 if (proposedNewQuantity < 1) {
+                    // If quantity goes to 0 or less, remove item from cart
                     this.removeFromCart(productId);
                     return;
                 }
                 
+                // Calculate new total pieces in cart for this product
                 const currentQuantityInPiecesOfThisItem = item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity;
                 const newQuantityInPiecesOfThisItem = item.unit === 'carton' ? proposedNewQuantity * product.cartonSize : proposedNewQuantity;
                 
+                // Get total of this product currently in cart (sum of all units/tiers)
                 const totalPiecesOfProductInCartExcludingThisItem = this.getQuantityInPieces(productId) - currentQuantityInPiecesOfThisItem;
                 const newTotalInCartForProduct = totalPiecesOfProductInCartExcludingThisItem + newQuantityInPiecesOfThisItem;
                 
                 if (newTotalInCartForProduct > product.stock) {
-                    this.showNotification('Not enough stock!', true);
+                    this.showNotification('Not enough stock!');
                     return;
                 }
                 
                 item.quantity = proposedNewQuantity;
-                this.saveState(); // Only save local cart state
-                this.renderAll(); // Re-render UI
+                this.saveAndRender();
             },
             
             toggleCartItemUnit(productId) {
@@ -886,21 +824,23 @@
                 const product = this.getProductById(productId);
                 const newUnit = item.unit === 'piece' ? 'carton' : 'piece';
 
+                // If switching to carton, ensure enough stock for at least one carton
                 if (newUnit === 'carton' && product.stock < product.cartonSize) {
-                    this.showNotification(`Not enough stock for a full carton.`, true);
+                    this.showNotification(`Not enough stock for a full carton.`);
                     return;
                 }
+                // If switching from carton to piece, and current quantity is 1 carton, convert to cartonSize pieces
+                // Otherwise, just reset quantity to 1 for the new unit
                 if (item.unit === 'carton' && newUnit === 'piece') {
-                    item.quantity = item.quantity * product.cartonSize; 
+                    item.quantity = item.quantity * product.cartonSize; // Convert cartons to pieces
                 } else {
-                    item.quantity = 1; 
+                    item.quantity = 1; // Default to 1 unit of new type
                 }
                 item.unit = newUnit;
-                this.saveState(); // Only save local cart state
-                this.renderAll(); // Re-render UI
+                this.saveAndRender();
             },
 
-            // --- UPDATED: CHECKOUT LOGIC (Streamlined for persistence) ---
+            // --- CHECKOUT LOGIC ---
             async processCheckout() {
                 if (this.state.cart.length === 0) return;
 
@@ -909,23 +849,22 @@
                     const product = this.getProductById(item.productId);
                     if (!product) return null;
 
-                    let effectivePricePerPiece = 0;
-                    let pricePerUnitDisplayedOnReceipt = 0;
+                    let effectivePricePerPiece = 0; // This is the price per single piece, used for total calculations
+                    let pricePerUnitDisplayedOnReceipt = 0; // This is the price per unit shown on receipt (piece or carton)
 
                     if (item.unit === 'piece') {
                         effectivePricePerPiece = product.prices[item.priceTier] || product.prices.retail;
-                        pricePerUnitDisplayedOnReceipt = effectivePricePerPiece;
+                        pricePerUnitDisplayedOnReceipt = effectivePricePerPiece; // For pieces, it's the same
                     } else if (item.unit === 'carton') {
-                        pricePerUnitDisplayedOnReceipt = product.prices.carton || product.prices.retail;
-                        // Calculate actual price per piece from carton price for accurate total calculation
-                        effectivePricePerPiece = (product.prices.carton / product.cartonSize) || product.prices.retail;
+                        pricePerUnitDisplayedOnReceipt = product.prices.carton || product.prices.retail; // Show carton price as unit price
+                        effectivePricePerPiece = (product.prices.carton / product.cartonSize) || product.prices.retail; // Calculate price per piece from carton price
                     }
 
                     const quantityInPieces = item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity;
-                    const itemTotal = effectivePricePerPiece * quantityInPieces;
+                    const itemTotal = effectivePricePerPiece * quantityInPieces; // This is the total for the line item based on pieces
 
-                    // IMPORTANT: Update product stock locally first. This will be reflected in the sheet later.
-                    product.stock -= quantityInPieces; 
+                    // Update product stock based on quantity in pieces
+                    product.stock -= quantityInPieces;
 
                     finalSaleTotal += itemTotal;
 
@@ -936,104 +875,72 @@
                         priceTier: item.priceTier,
                         pricePerPieceAtSale: effectivePricePerPiece, // The actual price per piece at sale
                         pricePerUnitDisplayedOnReceipt: pricePerUnitDisplayedOnReceipt, // The price displayed for the unit on receipt
-                        quantityInPieces: quantityInPieces, // Total actual pieces sold for this line item
-                        itemTotal: itemTotal, // Total for this specific line item
-                        productName: product.name // Include product name for sales log (easier for sheet)
+                        quantityInPieces: quantityInPieces, // Total actual pieces
+                        itemTotal: itemTotal // Total for this specific line item
                     };
                 }).filter(item => item !== null);
 
                 const saleRecord = {
                     id: `sale_${Date.now()}`,
                     timestamp: new Date().toISOString(),
-                    items: itemsForSaleRecord,
-                    total: finalSaleTotal,
+                    items: itemsForSaleRecord, // Use the prepared items
+                    total: finalSaleTotal, // Use the calculated final total
                     currency: this.state.settings.currency,
                     shopName: this.state.settings.shopName,
                 };
                 
-                this.showNotification("Processing checkout...", false);
+                this.state.sales.unshift(saleRecord); 
+                this.state.cart = []; // Clear cart after checkout
+                this.saveAndRender(); // Save state and re-render UI
 
-                // 1. Record sale to Google Sheet
-                await this.recordSaleToSheet(saleRecord.items); 
-                
-                // 2. Update product stock on the sheet (sends current product.stock for each sold item)
-                await this.updateProductStocksOnSheet(itemsForSaleRecord);
-
-                // 3. Clear cart locally and save local state
-                this.state.cart = []; 
-                this.saveState(); 
-
-                // 4. Re-load all data (products & sales) from sheet and re-render UI for fresh data
-                // This step ensures stock changes are reflected and sales log is up-to-date
-                await this.loadState(); 
-                this.renderAll(); 
-
-                // 5. Generate receipt 
+                // Generate receipt and sync to Google Sheets
                 this.generateReceipt(saleRecord);
                 
-                // Show final notification
+                // Show notification for the first item sold (or a generic message)
                 if (saleRecord.items.length > 0) {
                     const firstSoldItem = saleRecord.items[0];
                     const product = this.getProductById(firstSoldItem.productId);
-                    if (product) this.showNotification(`${firstSoldItem.quantity} × ${product.name} sold. Checkout complete!`);
+                    if (product) this.showNotification(`${firstSoldItem.quantity} × ${product.name} sold.`);
                 } else {
                     this.showNotification("Checkout processed.");
                 }
-            },
 
-            // --- NEW: Send sale data to Google Sheet (for Sales tab) ---
-            async recordSaleToSheet(salesItems) {
-                if (!this.state.settings.googleSheetUrl) {
-                    this.showNotification("Google Sheet URL not configured. Sale will only save locally (not persistently).", true);
-                    return; 
-                }
-
-                try {
-                    // Note: 'no-cors' mode means fetch() won't throw an error on 4xx/5xx responses
-                    // but on network errors. Apps Script will still process the request.
-                    const response = await fetch(this.state.settings.googleSheetUrl, {
-                        method: 'POST',
-                        mode: 'no-cors', 
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'recordSale', salesData: salesItems })
-                    });
-                    // this.showNotification("Sale recorded to server (async).", false); // Async message
-                } catch (error) {
-                    console.error("Failed to record sale to Google Sheet:", error);
-                    this.showNotification(`Error recording sale to server: ${error.message}`, true);
+                if (this.state.settings.googleSheetUrl) {
+                    try {
+                        await this.syncToGoogleSheets(saleRecord);
+                    } catch (error) {
+                        console.error("Failed to sync to Google Sheets:", error);
+                        this.showNotification("Error: Failed to sync sale.", true);
+                    }
                 }
             },
 
-            // --- NEW: Send product stock updates to Google Sheet (for Products tab) ---
-            async updateProductStocksOnSheet(soldItems) {
-                if (!this.state.settings.googleSheetUrl) {
-                    console.warn("Google Sheet URL not configured. Product stock won't be updated persistently.");
-                    return; 
-                }
-
-                try {
-                    const stockUpdates = soldItems.map(item => ({
-                        id: item.productId,
-                        newStock: this.getProductById(item.productId)?.stock // Get the updated stock from local state
-                    }));
-
-                    const response = await fetch(this.state.settings.googleSheetUrl, {
-                        method: 'POST',
-                        mode: 'no-cors', 
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'updateStocks', stockUpdates: stockUpdates })
-                    });
-                    // this.showNotification("Product stocks updated on server (async).", false); // Async message
-                } catch (error) {
-                    console.error("Failed to update product stocks on Google Sheet:", error);
-                    this.showNotification(`Error updating product stock on server: ${error.message}`, true);
-                }
+            // --- GOOGLE SHEETS & RECEIPT ---
+            syncToGoogleSheets(saleRecord) {
+                const dataForSheet = saleRecord.items.map(item => {
+                    const product = this.getProductById(item.productId);
+                    // Use item.pricePerPieceAtSale and item.itemTotal from saleRecord directly
+                    return {
+                        timestamp: saleRecord.timestamp,
+                        productName: product ? product.name : 'N/A',
+                        quantity: item.quantity,
+                        unit: item.unit,
+                        priceTier: item.priceTier,
+                        pricePerPiece: item.pricePerPieceAtSale,
+                        itemTotal: item.itemTotal
+                    };
+                });
+                return fetch(this.state.settings.googleSheetUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sales: dataForSheet })
+                });
             },
 
-            // MARKED CHANGE: Receipt generation logic adjusted for reliability
             generateReceipt(saleRecord) {
-                if (typeof jsPDF === 'undefined') { 
-                    this.showNotification("PDF library (jsPDF) not loaded. Cannot generate receipt.", true);
+                if (!jsPDF) {
+                    this.showNotification("PDF library not loaded. Cannot generate receipt.", true);
                     return;
                 }
                 const doc = new jsPDF();
@@ -1054,10 +961,12 @@
                     const product = this.getProductById(item.productId);
                     if (!product) return; 
 
+                    // Display quantity of the purchased unit (e.g., "10 pc" or "2 ctn")
                     const displayQuantityAndUnit = `${item.quantity} ${item.unit === 'piece' ? 'pc' : 'ctn'}`;
                     
                     doc.text(product.name, 10, y);
                     doc.text(displayQuantityAndUnit, 80, y); 
+                    // Display only the unit price without the currency symbol, as requested
                     doc.text(`${item.pricePerUnitDisplayedOnReceipt.toFixed(2)}`, 120, y); 
                     doc.text(`${item.itemTotal.toFixed(2)}`, 170, y, { align: 'right' });
                     y += 7;
@@ -1065,15 +974,10 @@
                 doc.line(10, y, 200, y);
                 y += 7;
                 doc.setFontSize(16);
+                // Display only the grand total without the currency symbol, as requested
                 doc.text(`Grand Total: ${saleRecord.total.toFixed(2)}`, 170, y, { align: 'right' });
-                
-                try {
-                    // Using dataurlnewwindow with filename for better control and reliability
-                    doc.output('dataurlnewwindow', { filename: `Receipt_${saleRecord.id}.pdf` });
-                } catch (pdfError) {
-                    console.error("Error generating PDF receipt:", pdfError);
-                    this.showNotification("Could not generate PDF receipt. Your browser might be blocking pop-ups.", true);
-                }
+                doc.autoPrint();
+                doc.output('dataurlnewwindow');
             },
             
             // --- GEMINI API INTEGRATION ---
@@ -1098,8 +1002,7 @@
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json(); 
-                        throw new Error(`API Error: ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`);
+                        throw new Error(`API Error: ${response.statusText}`);
                     }
                     const data = await response.json();
                     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -1125,7 +1028,7 @@
                     return;
                 }
                 const prompt = `Generate a short, engaging product description for a product named "${productName}". Keep it under 150 characters.`;
-                const description = await this.callGemini(prompt, event.target, document.createElement('div')); 
+                const description = await this.callGemini(prompt, event.target, document.createElement('div')); // Dummy div
                 if (description) {
                     form.querySelector('#description').value = description;
                     this.showNotification("Description generated!");
@@ -1145,7 +1048,7 @@
                         return `${item.quantity}x ${product ? product.name : 'Unknown'}`;
                     })
                 }));
-                const prompt = `Analyze the following JSON sales data from a small retail shop. Provide a brief summary of key insights. Mention the best-selling product (by quantity sold if possible), total revenue, and any notable trends in 2-3 bullet points. Data: ${JSON.stringify(salesData.slice(0, 20))}`; 
+                const prompt = `Analyze the following JSON sales data from a small retail shop. Provide a brief summary of key insights. Mention the best-selling product (by quantity sold if possible), total revenue, and any notable trends in 2-3 bullet points. Data: ${JSON.stringify(salesData.slice(0, 20))}`; // Limit data for prompt length
                 const resultContainer = document.getElementById('sales-analysis-result');
                 const analysis = await this.callGemini(prompt, event.target, resultContainer);
                 if (analysis) {
@@ -1239,8 +1142,7 @@
                 this.state.settings.currency = document.getElementById('currency-symbol').value;
                 this.state.settings.geminiApiKey = document.getElementById('gemini-api-key').value;
                 this.state.settings.googleSheetUrl = document.getElementById('google-sheet-url').value;
-                this.saveState(); // Only saves settings, cart, sales (for local cache)
-                this.renderAll(); // Re-render to update shop name in header
+                this.saveAndRender();
                 this.showNotification('Settings saved!');
                 this.closeModal();
             },
@@ -1267,9 +1169,9 @@
                             <textarea id="description" name="description">${product.description || ''}</textarea>
                         </div>
                         <div class="form-group">
-                            <label for="imageUrl">Product Image URL (Paste link, e.g., from Imgur)</label>
-                            <input type="text" id="imageUrl" name="imageUrl" value="${product.imageUrl || ''}" placeholder="e.g., https://example.com/image.jpg">
-                            ${isEditing && product.imageUrl ? `<img src="${product.imageUrl}" style="max-width: 100px; margin-top: 10px; border-radius: 8px;" onerror="this.src='https://placehold.co/100x100/e9e9eb/333?text=Image+Error'">` : ''}
+                            <label for="image">Product Image (Leave empty to keep existing)</label>
+                            <input type="file" id="image" name="image" accept="image/*">
+                            ${isEditing && product.imageUrl ? `<img src="${product.imageUrl}" style="max-width: 100px; margin-top: 10px; border-radius: 8px;">` : ''}
                         </div>
                         <div class="form-group">
                             <label>Price Tiers (per piece)</label>
@@ -1297,115 +1199,53 @@
                 this.openModal(content);
             },
 
-            // --- UPDATED: Save Product (to Google Sheet) ---
             async saveProduct(formData) {
-                const productId = formData.get('id'); // Will be empty for new products
+                const imageFile = formData.get('image');
+                const productId = formData.get('id');
+                let imageUrl = this.getProductById(productId)?.imageUrl;
 
-                // Get image URL directly from the input field (no file upload handled here)
-                let imageUrl = formData.get('imageUrl') || ''; 
-
+                if (imageFile && imageFile.size > 0) {
+                    imageUrl = await this.readImageAsBase64(imageFile);
+                } else if (!productId && (!imageUrl || imageUrl === '')) { // Ensure new products have an image or existing ones keep theirs
+                    this.showNotification('An image is required for new products.', true);
+                    return;
+                }
+                
                 const productData = {
-                    id: productId || `prod_${Date.now()}`, 
+                    id: productId || `prod_${Date.now()}`,
                     name: formData.get('name'),
                     description: formData.get('description'),
-                    imageUrl: imageUrl || 'https://placehold.co/200x200/e9e9eb/333?text=No+Image', 
+                    imageUrl: imageUrl,
                     prices: {
-                        retail: parseFloat(formData.get('priceRetail')) || 0,
-                        wholesale: parseFloat(formData.get('priceWholesale')) || 0,
-                        carton: parseFloat(formData.get('priceCarton')) || 0,
+                        retail: parseFloat(formData.get('priceRetail')),
+                        wholesale: parseFloat(formData.get('priceWholesale')),
+                        carton: parseFloat(formData.get('priceCarton')),
                     },
-                    stock: parseInt(formData.get('stock')) || 0,
-                    cartonSize: parseInt(formData.get('cartonSize')) || 1, 
+                    stock: parseInt(formData.get('stock')),
+                    cartonSize: parseInt(formData.get('cartonSize')),
                 };
-
-                if (!this.state.settings.googleSheetUrl) {
-                    this.showNotification("Google Sheet URL not configured. Product will only save locally.", true);
-                    const existingIndex = this.state.products.findIndex(p => p.id === productData.id);
-                    if (existingIndex > -1) {
-                        this.state.products[existingIndex] = productData;
-                    } else {
-                        this.state.products.push(productData);
-                    }
-                    this.saveState(); 
-                    this.renderAll();
-                    this.showSettings();
-                    return;
+                
+                const existingIndex = this.state.products.findIndex(p => p.id === productData.id);
+                if (existingIndex > -1) {
+                    this.state.products[existingIndex] = productData;
+                } else {
+                    this.state.products.push(productData);
                 }
-
-                try {
-                    const action = productId ? 'updateProduct' : 'addProduct'; 
-                    this.showNotification(`Saving product to server...`, false);
-
-                    const response = await fetch(this.state.settings.googleSheetUrl, {
-                        method: 'POST', 
-                        mode: 'no-cors', 
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: action, product: productData }) 
-                    });
-
-                    this.showNotification(`Product ${productId ? 'updated' : 'added'} successfully!`);
-                    await this.loadState(); // Reload products from sheet after successful save
-                    this.renderAll();
-                    this.showSettings(); 
-                } catch (error) {
-                    console.error("Failed to save product to Google Sheet:", error);
-                    this.showNotification(`Error saving product: ${error.message}`, true);
-                }
+                this.saveAndRender();
+                this.showSettings();
             },
 
-            // --- UPDATED: Delete Product (with custom confirmation) ---
-            async deleteProduct(productId) {
-                const confirmed = await new Promise(resolve => {
-                    const dialogHtml = `
-                        <div style="padding: 20px; text-align: center;">
-                            <h3>Confirm Deletion</h3>
-                            <p>Are you sure you want to delete this product?</p>
-                            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
-                                <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
-                                <button class="btn btn-secondary" id="cancel-delete-btn">Cancel</button>
-                            </div>
-                        </div>
-                    `;
-                    this.openModal(dialogHtml);
-                    document.getElementById('confirm-delete-btn').onclick = () => {
-                        this.closeModal();
-                        resolve(true);
-                    };
-                    document.getElementById('cancel-delete-btn').onclick = () => {
-                        this.closeModal();
-                        resolve(false);
-                    };
-                });
-
-                if (!confirmed) {
-                    return; 
-                }
-
-                if (!this.state.settings.googleSheetUrl) {
-                    this.showNotification("Google Sheet URL not configured. Cannot delete product persistently.", true);
+            deleteProduct(productId) {
+                // Use a custom modal or notification for confirmation instead of window.confirm
+                // For now, using a simple console log
+                console.log("Product delete confirmation requested for:", productId);
+                // You would replace this with a custom confirmation modal
+                const confirmDelete = true; // Placeholder for actual confirmation logic
+                if (confirmDelete) {
                     this.state.products = this.state.products.filter(p => p.id !== productId);
-                    this.saveState(); 
-                    this.renderAll();
+                    this.saveAndRender();
                     this.showSettings();
-                    return;
-                }
-
-                try {
-                    this.showNotification("Deleting product from server...", false);
-                    const response = await fetch(this.state.settings.googleSheetUrl, {
-                        method: 'POST',
-                        mode: 'no-cors', 
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'deleteProduct', productId: productId }) 
-                    });
-                    
                     this.showNotification("Product deleted successfully.");
-                    await this.loadState(); // Reload products from sheet after successful delete
-                    this.renderAll();
-                    this.showSettings();
-                } catch (error) {
-                    console.error("Failed to delete product from Google Sheet:", error);
-                    this.showNotification(`Error deleting product: ${error.message}`, true);
                 }
             },
             
@@ -1434,17 +1274,12 @@
             
             generateSalesLogRows(sales) {
                 if (sales.length === 0) return '<tr><td colspan="3" style="text-align:center; padding: 20px;">No sales recorded yet.</td></tr>';
-                // Sort sales by timestamp descending (most recent first)
-                const sortedSales = [...sales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-                return sortedSales.map(sale => {
+                return sales.map(sale => {
                     const details = sale.items.map(item => {
-                        // Get product for name. If product no longer exists, use 'Deleted Product'
-                        const product = this.getProductById(item.productId); 
-                        const productName = product ? product.name : 'Deleted Product';
-                        // Display quantity with 'pc' or 'ctn' and original quantity in pieces
+                        const product = this.getProductById(item.productId);
+                        // Display quantity with 'pc' or 'ctn' and remove price tier
                         const displayQty = item.unit === 'carton' ? `${item.quantity} ctn (${item.quantityInPieces} pc)` : `${item.quantity} pc`;
-                        return `${displayQty} × ${productName}`; 
+                        return `${displayQty} × ${product ? product.name : 'Deleted'}`; 
                     }).join('<br>');
                     
                     return `
@@ -1457,34 +1292,25 @@
             },
 
             filterSalesLog(reset = false) {
-                const dateFilterInput = document.getElementById('filter-date');
-                const dateFilter = dateFilterInput.value;
+                const dateFilter = document.getElementById('filter-date').value;
                 let filteredSales = this.state.sales;
-
                 if (!reset && dateFilter) {
-                    filteredSales = this.state.sales.filter(sale => {
-                        // Compare only the date part (YYYY-MM-DD)
-                        return new Date(sale.timestamp).toISOString().split('T')[0] === dateFilter;
-                    });
-                } else if (reset) {
-                    dateFilterInput.value = ''; // Clear the date filter input
+                    filteredSales = this.state.sales.filter(sale => new Date(sale.timestamp).toISOString().split('T')[0] === dateFilter);
                 }
                 document.getElementById('sales-log-body').innerHTML = this.generateSalesLogRows(filteredSales);
             },
 
             // --- UTILITY FUNCTIONS ---
-            // MARKED CHANGE: saveAndRender optimized for performance. It does NOT call loadState.
-            async saveAndRender() { 
-                this.saveState(); // Saves settings, cart, sales (for local cache)
-                // Products and historical sales are fetched from the Google Sheet via loadState() only
-                // when absolutely necessary (app init, product add/edit/delete, checkout).
-                // For simple cart interactions, local state update + re-render is sufficient.
-                this.renderAll(); // Just re-render based on current state (which was updated locally)
+            saveAndRender() {
+                this.saveState();
+                this.renderAll();
             },
             getProductById(id) { return this.state.products.find(p => p.id === id); },
             getCartItemPrice(cartItem) {
                 const product = this.getProductById(cartItem.productId);
                 if (!product) return 0;
+                // Returns the price for one unit of the selected type (piece or carton) based on the price tier.
+                // This is used for displaying the price in the cart.
                 if (cartItem.unit === 'carton') {
                     return product.prices.carton || product.prices.retail; 
                 }
@@ -1498,8 +1324,6 @@
                         return total + (product ? (item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity) : 0);
                     }, 0);
             },
-            // This function (readImageAsBase64) is no longer used for product images, as we're now expecting a URL input directly.
-            // Keeping it here in case it's used elsewhere or for future features.
             readImageAsBase64(file) {
                 return new Promise((resolve, reject) => {
                     const reader = new FileReader();
