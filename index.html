@@ -24,7 +24,488 @@
             --border-radius: 12px;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-        /* ... [unchanged CSS, omitted for brevity] ... */
+
+        /* --- Basic Setup --- */
+        * { box-sizing: border-box; }
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevents whole page from scrolling */
+        }
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+        }
+
+        #app-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        /* --- Top Bar --- */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 340px; /* Adjust for cart width */
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
+        .top-bar h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+        .top-bar-icons button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            font-size: 24px;
+            color: var(--text-color);
+            margin-left: 15px;
+            transition: color 0.2s ease;
+        }
+        .top-bar-icons button:hover { color: var(--primary-color); }
+        .top-bar-icons button.ai-feature:hover { color: var(--ai-color); }
+
+
+        /* --- Main Product Grid --- */
+        #product-grid {
+            flex-grow: 1;
+            padding: 80px 20px 20px; /* Space for top bar */
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            overflow-y: auto;
+            height: 100vh;
+        }
+        .product-card {
+            position: relative;
+            cursor: pointer;
+            aspect-ratio: 1 / 1;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+            background-color: var(--secondary-color);
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px var(--shadow-color);
+        }
+        .product-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .product-tooltip {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(100%);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            pointer-events: none;
+        }
+        .product-card:hover .product-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .placeholder {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 50px;
+            color: #888;
+        }
+
+        /* NEW: Out of Stock Indicator */
+        .product-card.out-of-stock {
+            opacity: 0.7; /* Slightly dim it */
+            pointer-events: none; /* Make it unclickable */
+        }
+        .product-card.out-of-stock::after {
+            content: "Out of Stock";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(220, 53, 69, 0.6); /* Red shade */
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+            border-radius: var(--border-radius);
+            z-index: 5; /* Above image, below tooltip */
+        }
+        .product-card.out-of-stock:hover .product-tooltip {
+            display: none; /* Hide tooltip for out of stock */
+        }
+
+
+        /* --- Cart Panel --- */
+        #cart-panel {
+            width: 340px;
+            flex-shrink: 0;
+            height: 100vh;
+            background-color: var(--panel-color);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -5px 0 15px var(--shadow-color);
+        }
+        .cart-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .cart-header h2 { font-size: 20px; margin: 0; }
+        #cart-total { font-weight: 600; font-size: 18px; }
+
+        #cart-items {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        .cart-placeholder {
+            padding: 20px;
+            text-align: center;
+            color: #aaa;
+            font-style: italic;
+        }
+
+        .cart-item {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding: 10px 10px 10px 40px; /* Space for delete button */
+            margin-bottom: 10px;
+            background-color: var(--bg-color);
+            border-radius: var(--border-radius);
+        }
+        .cart-item-delete-btn {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 22px;
+            height: 22px;
+            background-color: var(--secondary-color);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            font-size: 12px;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .cart-item-delete-btn:hover {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        .cart-item-img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-right: 10px;
+            background-color: #fff;
+        }
+        .cart-item-details {
+            flex-grow: 1;
+        }
+        .cart-item-name { font-weight: 600; }
+        .cart-item-price { font-size: 14px; color: #555; }
+        .cart-item-total {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-top: 5px;
+        }
+        .cart-item-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .price-tier-selector {
+            display: flex;
+            gap: 4px;
+        }
+        .price-tier-selector button {
+            border: 1px solid var(--border-color);
+            background-color: #fff;
+            border-radius: 6px;
+            padding: 3px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .price-tier-selector button.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+        }
+        .quantity-controls button {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border-color);
+            background-color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            line-height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.1s;
+        }
+        .quantity-controls button:active { background-color: var(--secondary-color); }
+        .quantity-value { font-size: 16px; font-weight: 500; padding: 0 10px; }
+        .unit-selector { font-size: 12px; cursor: pointer; color: var(--primary-color); margin-left: 5px; font-weight: 500;}
+
+        .cart-footer {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .checkout-button {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: 600;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .checkout-button:hover:not(:disabled) { background-color: #0056b3; }
+        .checkout-button:disabled { background-color: #aaa; cursor: not-allowed;}
+
+        /* --- Modal --- */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        #modal-overlay.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        #modal-content {
+            background: var(--panel-color);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+        #modal-overlay.visible #modal-content {
+            transform: scale(1);
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--secondary-color);
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .loading-spinner {
+            border: 4px solid var(--secondary-color);
+            border-top: 4px solid var(--ai-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+
+        /* --- Form & AI Styles --- */
+        .form-section h3 {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-top: 20px;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: var(--font-family);
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .price-tier-inputs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .settings-actions { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;}
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-danger { background-color: var(--danger-color); color: white; }
+        .btn-secondary { background-color: var(--secondary-color); color: var(--text-color); }
+        .btn-ai { background-color: var(--ai-color); color: white; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        #product-list-settings ul { list-style: none; padding: 0; }
+        #product-list-settings li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        #product-list-settings li:last-child { border-bottom: none; }
+
+        .sales-log-filters {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .sales-log-table { width: 100%; border-collapse: collapse; }
+        .sales-log-table th, .sales-log-table td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .sales-log-table th { font-weight: 600; }
+        
+        .ai-result-box {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .notification-bar {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            transition: bottom 0.5s ease-in-out;
+            font-size: 14px;
+        }
+        .notification-bar.show {
+            bottom: 20px;
+        }
+
+
+        /* --- Responsive Design --- */
+        @media (max-width: 900px) {
+            body { flex-direction: column; overflow: auto; }
+            #app-container {
+                flex-direction: column;
+                height: auto;
+            }
+            #cart-panel {
+                position: relative;
+                width: 100%;
+                height: auto;
+                max-height: 45vh; /* Limit cart height on mobile */
+                border-left: none;
+                border-top: 2px solid var(--border-color);
+            }
+            .top-bar {
+                right: 0; /* Full width */
+            }
+            #product-grid {
+                height: auto; /* Allow grid to determine its height */
+                min-height: 50vh;
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                padding-bottom: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -77,49 +558,27 @@
 
 
     <script>
-    // FIX: Safe jsPDF loading
-    let jsPDF;
-    if (window.jspdf && window.jspdf.jsPDF) {
-        jsPDF = window.jspdf.jsPDF;
-    } else {
-        console.error("jsPDF not loaded!");
-    }
-
-    // FIX: Safe product property access helper
-    function safeProduct(product) {
-        return {
-            name: product?.name || "Unnamed",
-            prices: {
-                retail: Number(product?.prices?.retail) || 0,
-                wholesale: Number(product?.prices?.wholesale) || 0,
-                carton: Number(product?.prices?.carton) || 0
-            },
-            stock: Number(product?.stock) || 0,
-            cartonSize: Number(product?.cartonSize) || 1,
-            imageUrl: product?.imageUrl || 'https://placehold.co/200x200/e9e9eb/333?text=Image+Error',
-            id: product?.id
-        }
-    }
-
-    // FIX: Robust safeParse for localStorage
-    function safeParse(json, fallback) {
-        try { return JSON.parse(json); }
-        catch { return fallback; }
-    }
-
+    // Wait for the DOM and external libraries to be ready
     window.addEventListener('DOMContentLoaded', () => {
+        // Check if jsPDF is loaded
+        if (typeof window.jspdf === 'undefined') {
+            console.error("jsPDF not loaded!");
+        }
+        const { jsPDF } = window.jspdf || {};
 
         const app = {
             // --- STATE MANAGEMENT ---
             state: {
-                products: [],
-                cart: [],
-                sales: [],
+                products: [], // Products will be loaded from Google Sheet
+                cart: [],     // Cart is session-specific, loaded from local storage
+                sales: [],    // Sales log data, will be loaded from Google Sheet
                 settings: {
-                    googleSheetUrl: '',
+                    // !!! IMPORTANT: PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE !!!
+                    // You get this URL after deploying your Google Apps Script (Code.gs).
+                    googleSheetUrl: '', // Example: 'https://script.google.com/macros/s/AKfycb.../exec'
                     shopName: 'AZIZIA STORE',
                     currency: '৳',
-                    geminiApiKey: ''
+                    geminiApiKey: '' // PASTE YOUR GEMINI API KEY HERE (optional, for AI features)
                 },
             },
 
@@ -138,28 +597,27 @@
                 topBarTitle: document.querySelector('.top-bar h1'),
             },
 
+            // --- INITIALIZATION ---
             async init() { 
-                await this.loadState();
+                await this.loadState(); // Ensure data is loaded before rendering
                 this.renderAll();
                 this.addEventListeners();
-                // FIX: Modal accessibility for Escape key
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape') this.closeModal();
-                });
                 console.log("AZIZIA STORE Assistant Initialized.");
             },
 
+            // --- UPDATED: Load state from Google Sheet and local storage ---
             async loadState() {
-                // FIX: Robust settings loading
-                const savedSettings = safeParse(localStorage.getItem('smartShopSettings'), null);
+                // Load settings from localStorage first (API key, sheet URL, etc.)
+                const savedSettings = localStorage.getItem('smartShopSettings');
                 if (savedSettings) {
-                    this.state.settings = { ...this.state.settings, ...savedSettings };
+                    this.state.settings = { ...this.state.settings, ...JSON.parse(savedSettings) };
                 }
 
+                // Attempt to fetch products AND sales from Google Sheet if URL is available
                 if (this.state.settings.googleSheetUrl) {
                     try {
                         this.showNotification("Loading data from server...", false);
-
+                        // Fetch products
                         const productsResponse = await fetch(this.state.settings.googleSheetUrl + '?action=getProducts');
                         if (!productsResponse.ok) {
                             const errorText = await productsResponse.text();
@@ -172,6 +630,7 @@
                             throw new Error(productsData.error);
                         }
 
+                        // Fetch sales (new addition for sales persistence)
                         const salesResponse = await fetch(this.state.settings.googleSheetUrl + '?action=getSales');
                         if (!salesResponse.ok) {
                             const errorText = await salesResponse.text();
@@ -189,32 +648,45 @@
                     } catch (error) {
                         console.error("Failed to load data from Google Sheet:", error);
                         this.showNotification(`Error loading data from server: ${error.message}. Using local storage as fallback.`, true);
-
-                        // FIX: Robust fallback
-                        const savedProducts = safeParse(localStorage.getItem('smartShopProducts'), []);
-                        this.state.products = savedProducts;
-                        const savedSalesLocal = safeParse(localStorage.getItem('smartShopSales'), []);
-                        this.state.sales = savedSalesLocal;
+                        // Fallback to local storage for products if sheet fails
+                        const savedProducts = localStorage.getItem('smartShopProducts');
+                        if (savedProducts) {
+                             this.state.products = JSON.parse(savedProducts);
+                        }
+                        // Fallback to local storage for sales if sheet fails
+                        const savedSalesLocal = localStorage.getItem('smartShopSales');
+                        if (savedSalesLocal) {
+                            this.state.sales = JSON.parse(savedSalesLocal);
+                        }
                     }
                 } else {
-                    // FIX: Robust fallback
-                    const savedProducts = safeParse(localStorage.getItem('smartShopProducts'), []);
-                    this.state.products = savedProducts;
-                    const savedSalesLocal = safeParse(localStorage.getItem('smartShopSales'), []);
-                    this.state.sales = savedSalesLocal;
+                    // If no Google Sheet URL, use local storage for all data
+                    const savedProducts = localStorage.getItem('smartShopProducts');
+                    if (savedProducts) {
+                         this.state.products = JSON.parse(savedProducts);
+                    }
+                    const savedSalesLocal = localStorage.getItem('smartShopSales');
+                    if (savedSalesLocal) {
+                        this.state.sales = JSON.parse(savedSalesLocal);
+                    }
                     this.showNotification("Google Sheet URL not configured. Using local storage only.", true);
                 }
 
-                const savedCart = safeParse(localStorage.getItem('smartShopCart'), []);
-                this.state.cart = savedCart;
+                // Cart is always session-specific, loaded from local storage
+                const savedCart = localStorage.getItem('smartShopCart');
+                if (savedCart) { this.state.cart = JSON.parse(savedCart); }
             },
 
+            // MARKED CHANGE: saveState() now only saves local session data (settings, cart)
+            // Products and historical sales are managed by Google Sheet.
             saveState() {
                 localStorage.setItem('smartShopSettings', JSON.stringify(this.state.settings)); 
                 localStorage.setItem('smartShopCart', JSON.stringify(this.state.cart));       
+                // ONLY save sales to local storage as a temporary cache, not as the primary source
                 localStorage.setItem('smartShopSales', JSON.stringify(this.state.sales));
             },
 
+            // --- RENDERING ---
             renderAll() {
                 this.renderProducts();
                 this.renderCart();
@@ -232,19 +704,20 @@
                     return;
                 }
 
-                this.state.products.forEach(p => {
-                    const product = safeProduct(p);
+                this.state.products.forEach(product => {
                     const card = document.createElement('div');
                     card.className = 'product-card';
                     card.dataset.id = product.id;
-                    // Out of stock state
-                    if (product.stock <= 0) card.classList.add('out-of-stock');
+                    // Add 'out-of-stock' class if product stock is 0 or less
+                    if (product.stock <= 0) {
+                        card.classList.add('out-of-stock');
+                    }
 
                     card.innerHTML = `
                         <img src="${product.imageUrl}" alt="${product.name}" onerror="this.src='https://placehold.co/200x200/e9e9eb/333?text=Image+Error'">
                         <div class="product-tooltip">
                             ${product.name}<br>
-                            ${this.state.settings.currency}${product.prices.retail.toFixed(2)} | Stock: ${product.stock}
+                            ${this.state.settings.currency}${product.prices.retail} | Stock: ${product.stock}
                         </div>
                     `;
                     card.addEventListener('click', () => this.addToCart(product.id));
@@ -261,15 +734,14 @@
                 }
 
                 this.state.cart.forEach(item => {
-                    const product = safeProduct(this.getProductById(item.productId));
+                    const product = this.getProductById(item.productId);
                     if (!product) return;
-
-                    const pricePerUnit = this.getCartItemPrice(item, product);
-                    const itemTotal = pricePerUnit * item.quantity;
 
                     const itemEl = document.createElement('div');
                     itemEl.className = 'cart-item';
                     itemEl.dataset.id = item.productId;
+                    const pricePerUnit = this.getCartItemPrice(item);
+                    const itemTotal = pricePerUnit * item.quantity;
 
                     itemEl.innerHTML = `
                         <button class="cart-item-delete-btn" title="Remove Item"><i class="ph-bold ph-x"></i></button>
@@ -300,24 +772,19 @@
 
             updateCartTotal() {
                 const total = this.state.cart.reduce((sum, item) => {
-                    const product = safeProduct(this.getProductById(item.productId));
+                    const product = this.getProductById(item.productId);
                     if (!product) return sum;
                     const pricePerEffectiveUnit = (item.unit === 'carton' && item.priceTier === 'carton') 
                                                 ? (product.prices.carton || product.prices.retail)
                                                 : (product.prices[item.priceTier] || product.prices.retail);
                     return sum + (pricePerEffectiveUnit * item.quantity);
                 }, 0);
-
-                // FIX: Only enable checkout if cart has valid stock items
-                const cartHasValidItems = this.state.cart.some(item => {
-                    const product = safeProduct(this.getProductById(item.productId));
-                    return product && product.stock > 0;
-                });
-                this.elements.checkoutBtn.disabled = !cartHasValidItems;
                 
                 this.elements.cartTotal.textContent = `Total: ${this.state.settings.currency}${total.toFixed(2)}`;
+                this.elements.checkoutBtn.disabled = this.state.cart.length === 0;
             },
 
+            // --- EVENT LISTENERS ---
             addEventListeners() {
                 this.elements.modalCloseBtn.addEventListener('click', () => this.closeModal());
                 this.elements.modalOverlay.addEventListener('click', (e) => {
@@ -331,7 +798,7 @@
                     const cartItemEl = e.target.closest('.cart-item');
                     if (!cartItemEl) return;
                     const productId = cartItemEl.dataset.id;
-
+                    
                     if (e.target.closest('.cart-item-delete-btn')) { this.removeFromCart(productId); }
                     if (e.target.closest('.price-tier-selector')) {
                         const tier = e.target.dataset.tier;
@@ -348,22 +815,9 @@
                 });
             },
 
-            getProductById(productId) {
-                return this.state.products.find(p => p.id == productId);
-            },
-
-            // FIX: Defensive getCartItemPrice
-            getCartItemPrice(item, product) {
-                if (!product) return 0;
-                if (item.unit === 'carton' && item.priceTier === 'carton') {
-                    return product.prices.carton || product.prices.retail;
-                }
-                return product.prices[item.priceTier] || product.prices.retail;
-            },
-
             // --- CART LOGIC ---
             addToCart(productId) {
-                const product = safeProduct(this.getProductById(productId));
+                const product = this.getProductById(productId);
                 if (!product || product.stock <= 0) {
                     this.showNotification('Item is out of stock.', true);
                     return;
@@ -379,57 +833,57 @@
                 } else {
                     this.state.cart.push({ productId, quantity: 1, priceTier: 'retail', unit: 'piece' });
                 }
-                this.saveState();
-                this.renderAll();
+                this.saveState(); // Only save local cart state
+                this.renderAll(); // Re-render UI
             },
             
             removeFromCart(productId) {
                 this.state.cart = this.state.cart.filter(item => item.productId !== productId);
-                this.saveState();
-                this.renderAll();
+                this.saveState(); // Only save local cart state
+                this.renderAll(); // Re-render UI
             },
 
             updateCartItem(productId, updates) {
                 const item = this.state.cart.find(i => i.productId === productId);
                 if (item) {
                     Object.assign(item, updates);
-                    this.saveState();
-                    this.renderAll();
+                    this.saveState(); // Only save local cart state
+                    this.renderAll(); // Re-render UI
                 }
             },
 
             updateCartItemQuantity(productId, change) {
                 const item = this.state.cart.find(i => i.productId === productId);
                 if (!item) return;
-
-                const product = safeProduct(this.getProductById(productId));
+                
+                const product = this.getProductById(productId);
                 const proposedNewQuantity = item.quantity + change;
 
                 if (proposedNewQuantity < 1) {
                     this.removeFromCart(productId);
                     return;
                 }
-
+                
                 const currentQuantityInPiecesOfThisItem = item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity;
                 const newQuantityInPiecesOfThisItem = item.unit === 'carton' ? proposedNewQuantity * product.cartonSize : proposedNewQuantity;
-
+                
                 const totalPiecesOfProductInCartExcludingThisItem = this.getQuantityInPieces(productId) - currentQuantityInPiecesOfThisItem;
                 const newTotalInCartForProduct = totalPiecesOfProductInCartExcludingThisItem + newQuantityInPiecesOfThisItem;
-
+                
                 if (newTotalInCartForProduct > product.stock) {
                     this.showNotification('Not enough stock!', true);
                     return;
                 }
-
+                
                 item.quantity = proposedNewQuantity;
-                this.saveState();
-                this.renderAll();
+                this.saveState(); // Only save local cart state
+                this.renderAll(); // Re-render UI
             },
             
             toggleCartItemUnit(productId) {
                 const item = this.state.cart.find(i => i.productId === productId);
                 if (!item) return;
-                const product = safeProduct(this.getProductById(productId));
+                const product = this.getProductById(productId);
                 const newUnit = item.unit === 'piece' ? 'carton' : 'piece';
 
                 if (newUnit === 'carton' && product.stock < product.cartonSize) {
@@ -442,26 +896,17 @@
                     item.quantity = 1; 
                 }
                 item.unit = newUnit;
-                this.saveState();
-                this.renderAll();
+                this.saveState(); // Only save local cart state
+                this.renderAll(); // Re-render UI
             },
 
-            getQuantityInPieces(productId) {
-                return this.state.cart
-                    .filter(item => item.productId === productId)
-                    .reduce((sum, item) => {
-                        const product = safeProduct(this.getProductById(productId));
-                        return sum + (item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity);
-                    }, 0);
-            },
-
-            // --- CHECKOUT LOGIC (Streamlined for persistence) ---
+            // --- UPDATED: CHECKOUT LOGIC (Streamlined for persistence) ---
             async processCheckout() {
                 if (this.state.cart.length === 0) return;
 
                 let finalSaleTotal = 0;
                 const itemsForSaleRecord = this.state.cart.map(item => {
-                    const product = safeProduct(this.getProductById(item.productId));
+                    const product = this.getProductById(item.productId);
                     if (!product) return null;
 
                     let effectivePricePerPiece = 0;
@@ -472,34 +917,30 @@
                         pricePerUnitDisplayedOnReceipt = effectivePricePerPiece;
                     } else if (item.unit === 'carton') {
                         pricePerUnitDisplayedOnReceipt = product.prices.carton || product.prices.retail;
+                        // Calculate actual price per piece from carton price for accurate total calculation
                         effectivePricePerPiece = (product.prices.carton / product.cartonSize) || product.prices.retail;
                     }
 
                     const quantityInPieces = item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity;
                     const itemTotal = effectivePricePerPiece * quantityInPieces;
 
-                    // Update product stock locally
+                    // IMPORTANT: Update product stock locally first. This will be reflected in the sheet later.
                     product.stock -= quantityInPieces; 
 
                     finalSaleTotal += itemTotal;
 
                     return {
                         productId: item.productId,
-                        quantity: item.quantity,
-                        unit: item.unit,
+                        quantity: item.quantity, // Quantity of the unit purchased (e.g., 2 if 2 cartons, or 5 if 5 pieces)
+                        unit: item.unit, // 'piece' or 'carton'
                         priceTier: item.priceTier,
-                        pricePerPieceAtSale: effectivePricePerPiece,
-                        pricePerUnitDisplayedOnReceipt: pricePerUnitDisplayedOnReceipt,
-                        quantityInPieces: quantityInPieces,
-                        itemTotal: itemTotal,
-                        productName: product.name
+                        pricePerPieceAtSale: effectivePricePerPiece, // The actual price per piece at sale
+                        pricePerUnitDisplayedOnReceipt: pricePerUnitDisplayedOnReceipt, // The price displayed for the unit on receipt
+                        quantityInPieces: quantityInPieces, // Total actual pieces sold for this line item
+                        itemTotal: itemTotal, // Total for this specific line item
+                        productName: product.name // Include product name for sales log (easier for sheet)
                     };
                 }).filter(item => item !== null);
-
-                // FIX: No negative stock after checkout
-                this.state.products.forEach(product => {
-                    if (product.stock < 0) product.stock = 0;
-                });
 
                 const saleRecord = {
                     id: `sale_${Date.now()}`,
@@ -515,24 +956,25 @@
                 // 1. Record sale to Google Sheet
                 await this.recordSaleToSheet(saleRecord.items); 
                 
-                // 2. Update product stock on the sheet
+                // 2. Update product stock on the sheet (sends current product.stock for each sold item)
                 await this.updateProductStocksOnSheet(itemsForSaleRecord);
 
                 // 3. Clear cart locally and save local state
                 this.state.cart = []; 
                 this.saveState(); 
 
-                // 4. Re-load all data (products & sales) from sheet and re-render UI
+                // 4. Re-load all data (products & sales) from sheet and re-render UI for fresh data
+                // This step ensures stock changes are reflected and sales log is up-to-date
                 await this.loadState(); 
                 this.renderAll(); 
 
                 // 5. Generate receipt 
-                this.generateReceipt && this.generateReceipt(saleRecord);
+                this.generateReceipt(saleRecord);
                 
                 // Show final notification
                 if (saleRecord.items.length > 0) {
                     const firstSoldItem = saleRecord.items[0];
-                    const product = safeProduct(this.getProductById(firstSoldItem.productId));
+                    const product = this.getProductById(firstSoldItem.productId);
                     if (product) this.showNotification(`${firstSoldItem.quantity} × ${product.name} sold. Checkout complete!`);
                 } else {
                     this.showNotification("Checkout processed.");
@@ -547,69 +989,536 @@
                 }
 
                 try {
-                    await fetch(this.state.settings.googleSheetUrl, {
+                    // Note: 'no-cors' mode means fetch() won't throw an error on 4xx/5xx responses
+                    // but on network errors. Apps Script will still process the request.
+                    const response = await fetch(this.state.settings.googleSheetUrl, {
                         method: 'POST',
                         mode: 'no-cors', 
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ action: 'recordSale', salesData: salesItems })
                     });
+                    // this.showNotification("Sale recorded to server (async).", false); // Async message
                 } catch (error) {
-                    this.showNotification("Failed to record sale to Google Sheet.", true);
+                    console.error("Failed to record sale to Google Sheet:", error);
+                    this.showNotification(`Error recording sale to server: ${error.message}`, true);
                 }
             },
 
-            async updateProductStocksOnSheet(itemsForSaleRecord) {
-                if (!this.state.settings.googleSheetUrl) return;
+            // --- NEW: Send product stock updates to Google Sheet (for Products tab) ---
+            async updateProductStocksOnSheet(soldItems) {
+                if (!this.state.settings.googleSheetUrl) {
+                    console.warn("Google Sheet URL not configured. Product stock won't be updated persistently.");
+                    return; 
+                }
+
                 try {
-                    await fetch(this.state.settings.googleSheetUrl, {
+                    const stockUpdates = soldItems.map(item => ({
+                        id: item.productId,
+                        newStock: this.getProductById(item.productId)?.stock // Get the updated stock from local state
+                    }));
+
+                    const response = await fetch(this.state.settings.googleSheetUrl, {
                         method: 'POST',
-                        mode: 'no-cors',
+                        mode: 'no-cors', 
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'updateStocks', stockData: itemsForSaleRecord.map(item => ({
-                            productId: item.productId,
-                            newStock: safeProduct(this.getProductById(item.productId)).stock
-                        })) })
+                        body: JSON.stringify({ action: 'updateStocks', stockUpdates: stockUpdates })
                     });
+                    // this.showNotification("Product stocks updated on server (async).", false); // Async message
                 } catch (error) {
-                    this.showNotification("Failed to update product stocks on Google Sheet.", true);
+                    console.error("Failed to update product stocks on Google Sheet:", error);
+                    this.showNotification(`Error updating product stock on server: ${error.message}`, true);
                 }
             },
 
-            showNotification(msg, isError = false) {
-                const bar = this.elements.notificationBar;
-                bar.textContent = msg;
-                bar.classList.add('show');
-                if (isError) bar.style.backgroundColor = 'rgba(220,53,69,0.9)';
-                else bar.style.backgroundColor = '';
-                setTimeout(() => {
-                    bar.classList.remove('show');
-                }, 3500);
+            // MARKED CHANGE: Receipt generation logic adjusted for reliability
+            generateReceipt(saleRecord) {
+                if (typeof jsPDF === 'undefined') { 
+                    this.showNotification("PDF library (jsPDF) not loaded. Cannot generate receipt.", true);
+                    return;
+                }
+                const doc = new jsPDF();
+                doc.setFontSize(20);
+                doc.text(`${saleRecord.shopName} Receipt`, 105, 20, { align: 'center' });
+                doc.setFontSize(12);
+                doc.text(`Date: ${new Date(saleRecord.timestamp).toLocaleString()}`, 10, 30);
+                let y = 45;
+                doc.line(10, 40, 200, 40);
+                doc.text("Item", 10, y);
+                doc.text("Qty", 80, y); 
+                doc.text("Unit Price", 120, y); 
+                doc.text("Total", 170, y, {align: 'right'});
+                y += 7;
+                doc.line(10, y-5, 200, y-5);
+                
+                saleRecord.items.forEach(item => {
+                    const product = this.getProductById(item.productId);
+                    if (!product) return; 
+
+                    const displayQuantityAndUnit = `${item.quantity} ${item.unit === 'piece' ? 'pc' : 'ctn'}`;
+                    
+                    doc.text(product.name, 10, y);
+                    doc.text(displayQuantityAndUnit, 80, y); 
+                    doc.text(`${item.pricePerUnitDisplayedOnReceipt.toFixed(2)}`, 120, y); 
+                    doc.text(`${item.itemTotal.toFixed(2)}`, 170, y, { align: 'right' });
+                    y += 7;
+                });
+                doc.line(10, y, 200, y);
+                y += 7;
+                doc.setFontSize(16);
+                doc.text(`Grand Total: ${saleRecord.total.toFixed(2)}`, 170, y, { align: 'right' });
+                
+                try {
+                    // Using dataurlnewwindow with filename for better control and reliability
+                    doc.output('dataurlnewwindow', { filename: `Receipt_${saleRecord.id}.pdf` });
+                } catch (pdfError) {
+                    console.error("Error generating PDF receipt:", pdfError);
+                    this.showNotification("Could not generate PDF receipt. Your browser might be blocking pop-ups.", true);
+                }
+            },
+            
+            // --- GEMINI API INTEGRATION ---
+            async callGemini(prompt, buttonToDisable, resultContainer) {
+                const apiKey = this.state.settings.geminiApiKey || "";
+
+                if (!apiKey) {
+                    this.showNotification("Please add your Gemini API Key in the Settings.", true);
+                    return null;
+                }
+
+                buttonToDisable.disabled = true;
+                resultContainer.innerHTML = '<div class="loading-spinner"></div>';
+
+                try {
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    const payload = { contents: [{ parts: [{ text: prompt }] }] };
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json(); 
+                        throw new Error(`API Error: ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`);
+                    }
+                    const data = await response.json();
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) throw new Error("No content received from API.");
+                    return text;
+                } catch (error) {
+                    console.error("Gemini API call failed:", error);
+                    resultContainer.innerHTML = `<p style="color:var(--danger-color)">Error: ${error.message}</p>`;
+                    return null;
+                } finally {
+                    buttonToDisable.disabled = false;
+                    if(resultContainer.querySelector('.loading-spinner')) {
+                        resultContainer.innerHTML = '';
+                    }
+                }
+            },
+
+            async generateProductDescription(event) {
+                const form = event.target.closest('form');
+                const productName = form.querySelector('#name').value;
+                if (!productName) {
+                    this.showNotification("Please enter a product name first.", true);
+                    return;
+                }
+                const prompt = `Generate a short, engaging product description for a product named "${productName}". Keep it under 150 characters.`;
+                const description = await this.callGemini(prompt, event.target, document.createElement('div')); 
+                if (description) {
+                    form.querySelector('#description').value = description;
+                    this.showNotification("Description generated!");
+                }
+            },
+
+            async analyzeSales(event) {
+                if (this.state.sales.length === 0) {
+                    this.showNotification("No sales data to analyze.", true);
+                    return;
+                }
+                const salesData = this.state.sales.map(sale => ({
+                    date: new Date(sale.timestamp).toLocaleDateString(),
+                    total: sale.total,
+                    items: sale.items.map(item => {
+                        const product = this.getProductById(item.productId);
+                        return `${item.quantity}x ${product ? product.name : 'Unknown'}`;
+                    })
+                }));
+                const prompt = `Analyze the following JSON sales data from a small retail shop. Provide a brief summary of key insights. Mention the best-selling product (by quantity sold if possible), total revenue, and any notable trends in 2-3 bullet points. Data: ${JSON.stringify(salesData.slice(0, 20))}`; 
+                const resultContainer = document.getElementById('sales-analysis-result');
+                const analysis = await this.callGemini(prompt, event.target, resultContainer);
+                if (analysis) {
+                    resultContainer.innerHTML = `<div class="ai-result-box">${analysis}</div>`;
+                }
+            },
+            
+            async getRestockSuggestions(event) {
+                const productData = this.state.products.map(p => ({
+                    name: p.name,
+                    stock: p.stock
+                }));
+
+                const salesHistory = this.state.sales.flatMap(s => s.items).reduce((acc, item) => {
+                    const productName = this.getProductById(item.productId)?.name;
+                    if(productName){
+                        acc[productName] = (acc[productName] || 0) + (item.unit === 'carton' ? item.quantity * this.getProductById(item.productId).cartonSize : item.quantity);
+                    }
+                    return acc;
+                }, {});
+
+                const prompt = `Based on the current inventory and sales history, suggest the top 3 products to restock. Give a brief, one-sentence reason for each. Current Inventory: ${JSON.stringify(productData)}. Sales History (product: total quantity sold): ${JSON.stringify(salesHistory)}`;
+                const resultContainer = document.getElementById('restock-suggestions-result');
+                const suggestions = await this.callGemini(prompt, event.target, resultContainer);
+                if (suggestions) {
+                    resultContainer.innerHTML = `<div class="ai-result-box">${suggestions}</div>`;
+                }
+            },
+
+
+            // --- MODAL & UI ---
+            openModal(content) {
+                this.elements.modalBody.innerHTML = content;
+                this.elements.modalOverlay.classList.add('visible');
             },
 
             closeModal() {
                 this.elements.modalOverlay.classList.remove('visible');
-                this.elements.modalBody.innerHTML = '';
             },
 
             showSettings() {
-                // ... Your settings modal logic ...
-                this.elements.modalOverlay.classList.add('visible');
-                this.elements.modalBody.innerHTML = '<div>Settings UI coming soon...</div>';
+                const productsListHtml = this.state.products.map(p => `
+                    <li>
+                        <span>${p.name} (Stock: ${p.stock})</span>
+                        <div><button class="btn btn-secondary" onclick="app.showEditProductForm('${p.id}')">Edit</button></div>
+                    </li>`).join('');
+
+                const content = `
+                    <h2>Settings</h2>
+                    <div class="form-section">
+                        <h3>General</h3>
+                        <div class="form-group">
+                            <label for="shop-name">Shop Name</label>
+                            <input type="text" id="shop-name" value="${this.state.settings.shopName}">
+                        </div>
+                         <div class="form-group">
+                            <label for="currency-symbol">Currency Symbol</label>
+                            <input type="text" id="currency-symbol" value="${this.state.settings.currency}">
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h3>AI Settings</h3>
+                        <div class="form-group">
+                            <label for="gemini-api-key">Gemini API Key</label>
+                            <input type="password" id="gemini-api-key" value="${this.state.settings.geminiApiKey}" placeholder="Enter your Gemini API key">
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h3>Google Sheets Sync</h3>
+                        <div class="form-group">
+                            <label for="google-sheet-url">Google Apps Script Web App URL</label>
+                            <input type="url" id="google-sheet-url" value="${this.state.settings.googleSheetUrl}" placeholder="Paste Web App URL (optional)">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="app.saveAppSettings()">Save All Settings</button>
+                    
+                    <div class="form-section" id="product-list-settings">
+                        <h3>Products</h3>
+                        <ul>${productsListHtml || '<li>No products yet.</li>'}</ul>
+                        <div class="settings-actions">
+                            <button class="btn btn-primary" onclick="app.showAddProductForm()">Add New Product</button>
+                            <button class="btn btn-ai" onclick="app.getRestockSuggestions(event)">✨ Get Restock Suggestions</button>
+                        </div>
+                        <div id="restock-suggestions-result"></div>
+                    </div>`;
+                this.openModal(content);
+            },
+            
+            saveAppSettings() {
+                this.state.settings.shopName = document.getElementById('shop-name').value;
+                this.state.settings.currency = document.getElementById('currency-symbol').value;
+                this.state.settings.geminiApiKey = document.getElementById('gemini-api-key').value;
+                this.state.settings.googleSheetUrl = document.getElementById('google-sheet-url').value;
+                this.saveState(); // Only saves settings, cart, sales (for local cache)
+                this.renderAll(); // Re-render to update shop name in header
+                this.showNotification('Settings saved!');
+                this.closeModal();
             },
 
-            showSalesLog() {
-                // ... Your sales log modal logic ...
-                this.elements.modalOverlay.classList.add('visible');
-                this.elements.modalBody.innerHTML = '<div>Sales Log UI coming soon...</div>';
-            }
+            showAddProductForm() { this.showEditProductForm(null); },
 
-            // ... Other app methods as needed ...
+            showEditProductForm(productId) {
+                const product = this.getProductById(productId) || {};
+                const isEditing = !!productId;
+
+                const content = `
+                    <h2>${isEditing ? 'Edit Product' : 'Add New Product'}</h2>
+                    <form id="product-form" onsubmit="event.preventDefault(); app.saveProduct(new FormData(event.target));">
+                        <input type="hidden" name="id" value="${product.id || ''}">
+                        <div class="form-group">
+                            <label for="name">Product Name</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="name" name="name" value="${product.name || ''}" required style="flex-grow: 1;">
+                                <button type="button" class="btn btn-ai" onclick="app.generateProductDescription(event)">✨</button>
+                            </div>
+                        </div>
+                         <div class="form-group">
+                            <label for="description">Product Description</label>
+                            <textarea id="description" name="description">${product.description || ''}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="imageUrl">Product Image URL (Paste link, e.g., from Imgur)</label>
+                            <input type="text" id="imageUrl" name="imageUrl" value="${product.imageUrl || ''}" placeholder="e.g., https://example.com/image.jpg">
+                            ${isEditing && product.imageUrl ? `<img src="${product.imageUrl}" style="max-width: 100px; margin-top: 10px; border-radius: 8px;" onerror="this.src='https://placehold.co/100x100/e9e9eb/333?text=Image+Error'">` : ''}
+                        </div>
+                        <div class="form-group">
+                            <label>Price Tiers (per piece)</label>
+                            <div class="price-tier-inputs">
+                                <input type="number" name="priceRetail" placeholder="Retail" value="${product.prices?.retail || ''}" required step="0.01">
+                                <input type="number" name="priceWholesale" placeholder="Wholesale" value="${product.prices?.wholesale || ''}" required step="0.01">
+                                <input type="number" name="priceCarton" placeholder="Carton" value="${product.prices?.carton || ''}" required step="0.01">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="stock">Quantity Available (in pieces)</label>
+                            <input type="number" id="stock" name="stock" value="${product.stock || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="cartonSize">Pieces per Carton</label>
+                            <input type="number" id="cartonSize" name="cartonSize" value="${product.cartonSize || ''}" required>
+                        </div>
+                        <div class="settings-actions">
+                             <button type="submit" class="btn btn-primary">${isEditing ? 'Save Changes' : 'Add Product'}</button>
+                             ${isEditing ? `<button type="button" class="btn btn-danger" onclick="app.deleteProduct('${product.id}')">Delete</button>` : ''}
+                             <button type="button" class="btn btn-secondary" onclick="app.showSettings()">Cancel</button>
+                        </div>
+                    </form>
+                `;
+                this.openModal(content);
+            },
+
+            // --- UPDATED: Save Product (to Google Sheet) ---
+            async saveProduct(formData) {
+                const productId = formData.get('id'); // Will be empty for new products
+
+                // Get image URL directly from the input field (no file upload handled here)
+                let imageUrl = formData.get('imageUrl') || ''; 
+
+                const productData = {
+                    id: productId || `prod_${Date.now()}`, 
+                    name: formData.get('name'),
+                    description: formData.get('description'),
+                    imageUrl: imageUrl || 'https://placehold.co/200x200/e9e9eb/333?text=No+Image', 
+                    prices: {
+                        retail: parseFloat(formData.get('priceRetail')) || 0,
+                        wholesale: parseFloat(formData.get('priceWholesale')) || 0,
+                        carton: parseFloat(formData.get('priceCarton')) || 0,
+                    },
+                    stock: parseInt(formData.get('stock')) || 0,
+                    cartonSize: parseInt(formData.get('cartonSize')) || 1, 
+                };
+
+                if (!this.state.settings.googleSheetUrl) {
+                    this.showNotification("Google Sheet URL not configured. Product will only save locally.", true);
+                    const existingIndex = this.state.products.findIndex(p => p.id === productData.id);
+                    if (existingIndex > -1) {
+                        this.state.products[existingIndex] = productData;
+                    } else {
+                        this.state.products.push(productData);
+                    }
+                    this.saveState(); 
+                    this.renderAll();
+                    this.showSettings();
+                    return;
+                }
+
+                try {
+                    const action = productId ? 'updateProduct' : 'addProduct'; 
+                    this.showNotification(`Saving product to server...`, false);
+
+                    const response = await fetch(this.state.settings.googleSheetUrl, {
+                        method: 'POST', 
+                        mode: 'no-cors', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: action, product: productData }) 
+                    });
+
+                    this.showNotification(`Product ${productId ? 'updated' : 'added'} successfully!`);
+                    await this.loadState(); // Reload products from sheet after successful save
+                    this.renderAll();
+                    this.showSettings(); 
+                } catch (error) {
+                    console.error("Failed to save product to Google Sheet:", error);
+                    this.showNotification(`Error saving product: ${error.message}`, true);
+                }
+            },
+
+            // --- UPDATED: Delete Product (with custom confirmation) ---
+            async deleteProduct(productId) {
+                const confirmed = await new Promise(resolve => {
+                    const dialogHtml = `
+                        <div style="padding: 20px; text-align: center;">
+                            <h3>Confirm Deletion</h3>
+                            <p>Are you sure you want to delete this product?</p>
+                            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                                <button class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+                                <button class="btn btn-secondary" id="cancel-delete-btn">Cancel</button>
+                            </div>
+                        </div>
+                    `;
+                    this.openModal(dialogHtml);
+                    document.getElementById('confirm-delete-btn').onclick = () => {
+                        this.closeModal();
+                        resolve(true);
+                    };
+                    document.getElementById('cancel-delete-btn').onclick = () => {
+                        this.closeModal();
+                        resolve(false);
+                    };
+                });
+
+                if (!confirmed) {
+                    return; 
+                }
+
+                if (!this.state.settings.googleSheetUrl) {
+                    this.showNotification("Google Sheet URL not configured. Cannot delete product persistently.", true);
+                    this.state.products = this.state.products.filter(p => p.id !== productId);
+                    this.saveState(); 
+                    this.renderAll();
+                    this.showSettings();
+                    return;
+                }
+
+                try {
+                    this.showNotification("Deleting product from server...", false);
+                    const response = await fetch(this.state.settings.googleSheetUrl, {
+                        method: 'POST',
+                        mode: 'no-cors', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'deleteProduct', productId: productId }) 
+                    });
+                    
+                    this.showNotification("Product deleted successfully.");
+                    await this.loadState(); // Reload products from sheet after successful delete
+                    this.renderAll();
+                    this.showSettings();
+                } catch (error) {
+                    console.error("Failed to delete product from Google Sheet:", error);
+                    this.showNotification(`Error deleting product: ${error.message}`, true);
+                }
+            },
+            
+            showSalesLog() {
+                const content = `
+                    <h2>Sales Log</h2>
+                    <div class="sales-log-filters">
+                        <input type="date" id="filter-date" class="form-group">
+                        <button class="btn btn-secondary" onclick="app.filterSalesLog()">Filter</button>
+                        <button class="btn btn-secondary" onclick="app.filterSalesLog(true)">Show All</button>
+                        <button class="btn btn-ai" onclick="app.analyzeSales(event)">✨ Analyze Sales</button>
+                    </div>
+                    <div id="sales-analysis-result"></div>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table class="sales-log-table">
+                            <thead>
+                                <tr><th>Time</th><th>Details</th><th>Total</th></tr>
+                            </thead>
+                            <tbody id="sales-log-body">
+                                ${this.generateSalesLogRows(this.state.sales)}
+                            </tbody>
+                        </table>
+                    </div>`;
+                this.openModal(content);
+            },
+            
+            generateSalesLogRows(sales) {
+                if (sales.length === 0) return '<tr><td colspan="3" style="text-align:center; padding: 20px;">No sales recorded yet.</td></tr>';
+                // Sort sales by timestamp descending (most recent first)
+                const sortedSales = [...sales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                return sortedSales.map(sale => {
+                    const details = sale.items.map(item => {
+                        // Get product for name. If product no longer exists, use 'Deleted Product'
+                        const product = this.getProductById(item.productId); 
+                        const productName = product ? product.name : 'Deleted Product';
+                        // Display quantity with 'pc' or 'ctn' and original quantity in pieces
+                        const displayQty = item.unit === 'carton' ? `${item.quantity} ctn (${item.quantityInPieces} pc)` : `${item.quantity} pc`;
+                        return `${displayQty} × ${productName}`; 
+                    }).join('<br>');
+                    
+                    return `
+                        <tr>
+                            <td>${new Date(sale.timestamp).toLocaleTimeString()} <br> <small>${new Date(sale.timestamp).toLocaleDateString()}</small></td>
+                            <td>${details}</td>
+                            <td>${sale.currency || '৳'}${sale.total.toFixed(2)}</td>
+                        </tr>`;
+                }).join('');
+            },
+
+            filterSalesLog(reset = false) {
+                const dateFilterInput = document.getElementById('filter-date');
+                const dateFilter = dateFilterInput.value;
+                let filteredSales = this.state.sales;
+
+                if (!reset && dateFilter) {
+                    filteredSales = this.state.sales.filter(sale => {
+                        // Compare only the date part (YYYY-MM-DD)
+                        return new Date(sale.timestamp).toISOString().split('T')[0] === dateFilter;
+                    });
+                } else if (reset) {
+                    dateFilterInput.value = ''; // Clear the date filter input
+                }
+                document.getElementById('sales-log-body').innerHTML = this.generateSalesLogRows(filteredSales);
+            },
+
+            // --- UTILITY FUNCTIONS ---
+            // MARKED CHANGE: saveAndRender optimized for performance. It does NOT call loadState.
+            async saveAndRender() { 
+                this.saveState(); // Saves settings, cart, sales (for local cache)
+                // Products and historical sales are fetched from the Google Sheet via loadState() only
+                // when absolutely necessary (app init, product add/edit/delete, checkout).
+                // For simple cart interactions, local state update + re-render is sufficient.
+                this.renderAll(); // Just re-render based on current state (which was updated locally)
+            },
+            getProductById(id) { return this.state.products.find(p => p.id === id); },
+            getCartItemPrice(cartItem) {
+                const product = this.getProductById(cartItem.productId);
+                if (!product) return 0;
+                if (cartItem.unit === 'carton') {
+                    return product.prices.carton || product.prices.retail; 
+                }
+                return product.prices[cartItem.priceTier] || product.prices.retail;
+            },
+            getQuantityInPieces(productId) {
+                return this.state.cart
+                    .filter(item => item.productId === productId)
+                    .reduce((total, item) => {
+                        const product = this.getProductById(productId);
+                        return total + (product ? (item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity) : 0);
+                    }, 0);
+            },
+            // This function (readImageAsBase64) is no longer used for product images, as we're now expecting a URL input directly.
+            // Keeping it here in case it's used elsewhere or for future features.
+            readImageAsBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(file);
+                });
+            },
+            showNotification(message, isError = false) {
+                const bar = this.elements.notificationBar;
+                bar.textContent = message;
+                bar.style.backgroundColor = isError ? 'var(--danger-color)' : 'rgba(0,0,0,0.8)';
+                bar.classList.add('show');
+                setTimeout(() => bar.classList.remove('show'), 3000);
+            }
         };
 
+        window.app = app; 
         app.init();
-        // Attach app globally for escape handler
-        window.app = app;
-
     });
     </script>
 </body>
