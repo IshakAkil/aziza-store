@@ -598,8 +598,8 @@
             },
 
             // --- INITIALIZATION ---
-            init() {
-                this.loadState();
+           async init() { // Add 'async' here
+                await this.loadState(); // <-- Add 'await' here
                 this.renderAll();
                 this.addEventListeners();
                 console.log("AZIZIA STORE Assistant Initialized.");
@@ -654,8 +654,14 @@ async loadState() {
     if (savedSales) { this.state.sales = JSON.parse(savedSales); }
 },
 
+           // --- UPDATED: Save state for local items (settings, cart, sales) ---
+            // This function should ONLY save things meant for local browser storage.
+            // Products are managed by Google Sheet now.
             saveState() {
-                localStorage.setItem('smartShopState', JSON.stringify(this.state));
+                localStorage.setItem('smartShopSettings', JSON.stringify(this.state.settings)); // Save settings locally
+                localStorage.setItem('smartShopCart', JSON.stringify(this.state.cart));       // Save cart locally
+                localStorage.setItem('smartShopSales', JSON.stringify(this.state.sales));     // Save sales locally (for initial display/local logging)
+                // Do NOT save products to local storage here. They come from the sheet.
             },
 
             // --- RENDERING ---
@@ -878,7 +884,7 @@ async loadState() {
                 this.saveAndRender();
             },
 
-            // --- CHECKOUT LOGIC ---
+        // --- UPDATED: CHECKOUT LOGIC ---
             async processCheckout() {
                 if (this.state.cart.length === 0) return;
 
@@ -887,51 +893,59 @@ async loadState() {
                     const product = this.getProductById(item.productId);
                     if (!product) return null;
 
-                    let effectivePricePerPiece = 0; // This is the price per single piece, used for total calculations
-                    let pricePerUnitDisplayedOnReceipt = 0; // This is the price per unit shown on receipt (piece or carton)
+                    let effectivePricePerPiece = 0;
+                    let pricePerUnitDisplayedOnReceipt = 0;
 
                     if (item.unit === 'piece') {
                         effectivePricePerPiece = product.prices[item.priceTier] || product.prices.retail;
-                        pricePerUnitDisplayedOnReceipt = effectivePricePerPiece; // For pieces, it's the same
+                        pricePerUnitDisplayedOnReceipt = effectivePricePerPiece;
                     } else if (item.unit === 'carton') {
-                        pricePerUnitDisplayedOnReceipt = product.prices.carton || product.prices.retail; // Show carton price as unit price
-                        effectivePricePerPiece = (product.prices.carton / product.cartonSize) || product.prices.retail; // Calculate price per piece from carton price
+                        pricePerUnitDisplayedOnReceipt = product.prices.carton || product.prices.retail;
+                        effectivePricePerPiece = (product.prices.carton / product.cartonSize) || product.prices.retail;
                     }
 
                     const quantityInPieces = item.unit === 'carton' ? item.quantity * product.cartonSize : item.quantity;
-                    const itemTotal = effectivePricePerPiece * quantityInPieces; // This is the total for the line item based on pieces
+                    const itemTotal = effectivePricePerPiece * quantityInPieces;
 
-                    // Update product stock based on quantity in pieces
+                    // Update product stock based on quantity in pieces (locally first)
+                    // This will be permanently updated when products are reloaded from sheet after sale sync
                     product.stock -= quantityInPieces;
 
                     finalSaleTotal += itemTotal;
 
                     return {
                         productId: item.productId,
-                        quantity: item.quantity, // Quantity of the unit purchased (e.g., 2 if 2 cartons, or 5 if 5 pieces)
-                        unit: item.unit, // 'piece' or 'carton'
+                        quantity: item.quantity,
+                        unit: item.unit,
                         priceTier: item.priceTier,
-                        pricePerPieceAtSale: effectivePricePerPiece, // The actual price per piece at sale
-                        pricePerUnitDisplayedOnReceipt: pricePerUnitDisplayedOnReceipt, // The price displayed for the unit on receipt
-                        quantityInPieces: quantityInPieces, // Total actual pieces
-                        itemTotal: itemTotal // Total for this specific line item
+                        pricePerPieceAtSale: effectivePricePerPiece,
+                        pricePerUnitDisplayedOnReceipt: pricePerUnitDisplayedOnReceipt,
+                        quantityInPieces: quantityInPieces,
+                        itemTotal: itemTotal,
+                        productName: product.name // Include product name for sales log
                     };
                 }).filter(item => item !== null);
 
                 const saleRecord = {
                     id: `sale_${Date.now()}`,
                     timestamp: new Date().toISOString(),
-                    items: itemsForSaleRecord, // Use the prepared items
-                    total: finalSaleTotal, // Use the calculated final total
+                    items: itemsForSaleRecord,
+                    total: finalSaleTotal,
                     currency: this.state.settings.currency,
                     shopName: this.state.settings.shopName,
                 };
                 
-                this.state.sales.unshift(saleRecord); 
-                this.state.cart = []; // Clear cart after checkout
-                this.saveAndRender(); // Save state and re-render UI
+                // UPDATED: Record sale to Google Sheet using the dedicated method
+                await this.recordSale(saleRecord.items); 
 
-                // Generate receipt and sync to Google Sheets
+                // Clear cart after checkout (local state)
+                this.state.cart = []; 
+                this.saveState(); // Save local state (cart, sales)
+                // Re-render UI (products will also re-render due to stock change via loadState)
+                await this.loadState(); // This reloads the updated product stock from the sheet
+                this.renderAll(); 
+
+                // Generate receipt 
                 this.generateReceipt(saleRecord);
                 
                 // Show notification for the first item sold (or a generic message)
@@ -942,40 +956,9 @@ async loadState() {
                 } else {
                     this.showNotification("Checkout processed.");
                 }
-
-                if (this.state.settings.googleSheetUrl) {
-                    try {
-                        await this.syncToGoogleSheets(saleRecord);
-                    } catch (error) {
-                        console.error("Failed to sync to Google Sheets:", error);
-                        this.showNotification("Error: Failed to sync sale.", true);
-                    }
-                }
             },
 
-            // --- GOOGLE SHEETS & RECEIPT ---
-            syncToGoogleSheets(saleRecord) {
-                const dataForSheet = saleRecord.items.map(item => {
-                    const product = this.getProductById(item.productId);
-                    // Use item.pricePerPieceAtSale and item.itemTotal from saleRecord directly
-                    return {
-                        timestamp: saleRecord.timestamp,
-                        productName: product ? product.name : 'N/A',
-                        quantity: item.quantity,
-                        unit: item.unit,
-                        priceTier: item.priceTier,
-                        pricePerPiece: item.pricePerPieceAtSale,
-                        itemTotal: item.itemTotal
-                    };
-                });
-                return fetch(this.state.settings.googleSheetUrl, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sales: dataForSheet })
-                });
-            },
-
+           
             generateReceipt(saleRecord) {
                 if (!jsPDF) {
                     this.showNotification("PDF library not loaded. Cannot generate receipt.", true);
@@ -1396,10 +1379,12 @@ async loadState() {
                 document.getElementById('sales-log-body').innerHTML = this.generateSalesLogRows(filteredSales);
             },
 
-            // --- UTILITY FUNCTIONS ---
-            saveAndRender() {
-                this.saveState();
-                this.renderAll();
+         // --- UTILITY FUNCTIONS ---
+            // UPDATED: saveAndRender now ensures loadState completes before rendering
+            async saveAndRender() { // Make it async
+                this.saveState(); // Save local state (cart, sales, settings)
+                await this.loadState(); // AWAIT the loadState to ensure products are fetched
+                this.renderAll(); // Re-render everything with the fresh data
             },
             getProductById(id) { return this.state.products.find(p => p.id === id); },
             getCartItemPrice(cartItem) {
